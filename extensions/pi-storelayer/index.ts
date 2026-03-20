@@ -223,7 +223,6 @@ const DOMAIN_LABELS: Record<string, string> = {
   surveys: "Surveys",
   workflows: "Workflows",
   user_workflows: "User Workflows",
-  feedback: "Feedback",
   agent: "Agent",
 };
 
@@ -231,9 +230,11 @@ const DOMAIN_LABELS: Record<string, string> = {
 const DOMAIN_GUIDELINES: Record<string, string[]> = {
   project: [
     "Use tool 'project.add_rule' to create rules with conditions and actions.",
+    "Resources (event, wallet, user, history) are auto-created when referenced in conditions — no manual setup needed.",
     "Use tool 'project.test_conditions' to test conditions against sample context WITHOUT saving.",
     "Use tool 'project.test_rule' to evaluate a saved rule against sample context.",
     "Conditions use {{ $('resource').field }} expressions. Common resources: event, user, wallet, store.",
+    "Expressions support ?? (nullish coalescing): {{ $('event').customField ?? 'default' }}.",
     "Common operators: equals, gt, gte, lt, lte, contains, startsWith, endsWith, exists, is_true, regex, before, after.",
     "Common actions: reward (add points), redemption (deduct points), integration, apply_referral, complete_referral.",
     "When creating rules, translate the user's plain-language intent into conditions and actions.",
@@ -242,21 +243,35 @@ const DOMAIN_GUIDELINES: Record<string, string[]> = {
   wallet: [
     "Use 'wallet.get_balance' to check a user's wallet — requires userId.",
     "Wallet balances are accessible in rule conditions via {{ $('wallet').balances.<assetType> }}.",
-    "Use 'wallet.earn' to add points and 'wallet.spend' to deduct points.",
+    "Use 'wallet.earn' to add points and 'wallet.spend' to deduct points (FEFO — first expiring, first out).",
+    "Use 'wallet.list_assets' to list active asset entries with optional filter by asset type or tag.",
   ],
   promotions: [
     "Use 'promotions.evaluate_cart' to test how promotions apply to a cart.",
+    "Cart fields use camelCase: unitPrice, productId, variantId, shippingAddress, etc.",
     "When creating promotions, ask about: discount type, conditions, validity dates, coupon codes.",
     "Always preview the promotion config before creating it.",
   ],
   resources: [
-    "Resources define data sources for rule conditions (event, user, wallet, http, database).",
-    "Internal resource entities: user, wallet, history, user_lookup.",
+    "Resource types: event, internal, http, database, payload. Old builtins (cart, customer, item) are removed.",
+    "Internal resources (wallet, user, history) are auto-created when rules reference them.",
+    "Payload resources store custom data with config.data field.",
+    "Resources cannot be deleted while referenced by rules (use force: true to override).",
     "Resource keys must match: /^[a-zA-Z][a-zA-Z0-9_]*$/",
+  ],
+  events: [
+    "Use 'events.ingest' to send loyalty events. Uses strict validation — unknown fields are rejected.",
+    "Required fields: type, userId, payload. Use camelCase (userId, not user_id).",
+    "Event resources are auto-created when rules reference event types.",
   ],
   external_users: [
     "Use 'external_users.get_user' to look up a user by ID.",
     "Use 'external_users.lookup_user' to find users by email, phone, or external ID.",
+    "Use 'external_users.search' to search by name/email/phone substring.",
+  ],
+  workflows: [
+    "Use 'workflows.get_full' for complete execution details with rules and actions.",
+    "Step durations are accurately measured for performance analysis.",
   ],
 };
 
@@ -419,26 +434,36 @@ Each tool has an 'action' parameter — pick the action and pass parameters in '
 ### Common Operations
 
 **Create a rule:**
-\`storelayer_project\` action: \`add_rule\`, params: \`{ name, conditions, actions, resources }\`
+\`storelayer_project\` action: \`add_rule\`, params: \`{ name, conditions, actions }\`
+Resources (event, wallet, user, history) are auto-created — no manual resource setup needed.
 
 **Test conditions:**
 \`storelayer_project\` action: \`test_conditions\`, params: \`{ conditions: { conditions: [...], combinator: "AND" }, context: { event: {...} } }\`
+
+**Ingest an event:**
+\`storelayer_events\` action: \`ingest\`, params: \`{ type, userId, payload }\`
+Uses strict validation — unknown fields are rejected. Always use camelCase (userId, not user_id).
 
 **Get wallet balance:**
 \`storelayer_wallet\` action: \`get_balance\`, user_id: \`"user_123"\`
 
 **Create a promotion:**
-\`storelayer_promotions\` action: \`create_promotion\`, params: \`{ name, conditions, applicationMethod, status }\`
+\`storelayer_promotions\` action: \`create\`, params: \`{ name, conditions, applicationMethod, status }\`
 
 **Evaluate promotions on a cart:**
 \`storelayer_promotions\` action: \`evaluate_cart\`, params: \`{ cart: { items: [...] }, userId, couponCodes }\`
+Cart fields use camelCase: unitPrice, productId, shippingAddress, etc.
 
 ### Key Concepts
-- **Resources**: Data sources for rules (event, user, wallet, store, http, database)
+- **Resources**: Data sources for rules (event, internal, http, database, payload). Old builtins are removed.
+  - Internal resources (wallet, user, history) are auto-created when rules reference them.
+  - Event resources are auto-created on rule creation based on conditions.
+  - Resources cannot be deleted while referenced by rules.
 - **Rules**: Conditions + actions triggered by events (e.g., "purchase > $100 → reward 500 points")
 - **Promotions**: Discount campaigns with conditions, codes, and validity periods
-- **Wallet**: Points/currency ledger per user. Access in conditions via \`{{ $('wallet').balances.<assetType> }}\`
+- **Wallet**: Points/currency ledger per user. Access in conditions via \`{{ $('wallet').balances.<assetType> }}\`. Spend uses FEFO (first expiring, first out).
 - **Conditions**: Expressions like \`{{ $('event').amount }}\` > 100
+- **Expressions**: Support \`??\` (nullish coalescing): \`{{ $('event').field ?? 'default' }}\`
 
 When creating rules/promotions, always:
 1. Ask the user what they want to achieve in plain language
