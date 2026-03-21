@@ -191,7 +191,7 @@ Conditions are combined with AND or OR:
 ```json
 {
   "entity": "user",
-  "userIdExpression": "{{ event.userId }}"
+  "userIdExpression": "{{ $('event').userId }}"
 }
 ```
 
@@ -206,10 +206,12 @@ Entities: `user`, `wallet`, `history`, `user_lookup`
   "type": "internal",
   "value": {
     "entity": "wallet",
-    "userIdExpression": "{{ event.userId }}"
+    "userIdExpression": "{{ $('event').userId }}"
   }
 }
 ```
+
+For promotion evaluation context, use `{{ $('cart').userId }}` to resolve from the cart.
 
 ### HTTP Resource Config
 
@@ -288,15 +290,65 @@ Use `storelayer_promotions` action `evaluate_cart` with params:
 ```json
 {
   "cart": {
+    "userId": "user_123",
     "items": [
       { "id": "item_1", "name": "Latte", "quantity": 2, "unitPrice": 5.5 }
-    ]
+    ],
+    "currencyCode": "USD",
+    "redemptions": [{ "type": "points", "amount": 500 }]
   },
-  "userId": "user_123",
   "couponCodes": ["SUMMER20"],
   "dryRun": true
 }
 ```
+
+- `userId` is inside `cart` (or use `cart.customer.id`)
+- `redemptions` — wallet assets the user wants to redeem (default: `[]`)
+- Response is fully **camelCase** (e.g., `discountTotal`, `appliedCount`, `shippingMethods`)
+
+### Redemptions in Custom Scripts
+
+Promotions using `custom_script` method can access wallet and redemptions:
+
+```javascript
+var redemptions = $("cart").redemptions; // [{ type: 'points', amount: 500 }]
+var wallet = $("wallet"); // { points: { balance, ... } }
+
+var results = [];
+for (var i = 0; i < redemptions.length; i++) {
+  var r = redemptions[i];
+  var balance = wallet[r.type]?.balance || 0;
+  var actual = Math.min(r.amount, balance);
+  if (actual <= 0) continue;
+
+  var discount = actual / 100; // 100 points = $1
+  discount = Math.min(discount, $("cart").total);
+
+  results.push({
+    id: "__order__",
+    amount: discount,
+    redemption: { type: r.type, amount: actual },
+  });
+}
+return results;
+```
+
+The script must return `redemption: { type, amount }` on each result entry to signal what to debit. On `dryRun: false`, the system spends these computed amounts via `wallet.spend()`.
+
+Response includes:
+
+```json
+{
+  "redemptions": [{ "type": "points", "amount": 450, "id": "promo_xxx" }],
+  "summary": { "discountTotal": 4.5 }
+}
+```
+
+### Promotion Resources
+
+Promotions use the **resource resolution system** (same as rules). Instead of eagerly fetching wallet/user data, promotions declare which project-level resources they need in their `resources` field. Only declared resources are fetched at evaluation time.
+
+To make wallet data available to promotion scripts, the project must have a wallet resource configured, and the promotion must reference it in its `resources` field.
 
 ### Coupon Operations
 
