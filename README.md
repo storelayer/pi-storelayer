@@ -18,7 +18,12 @@ Or add to your `~/.pi/settings.json`:
 
 ## Setup
 
-Set your Storelayer API credentials via environment variables or `.env` file:
+Credentials are resolved in order — first match wins:
+
+1. **Environment variables**
+2. **`.env`** in working directory
+3. **`.storelayer.json`** in working directory
+4. **`~/.storelayer.json`** in home directory
 
 ```bash
 # Environment variables
@@ -30,7 +35,7 @@ export STORELAYER_PROJECT_ID=your-project-id         # optional
 echo 'STORELAYER_API_KEY=your-api-key' >> .env
 ```
 
-Or create `.storelayer.json`:
+Or create `.storelayer.json` (in project directory or `~/.storelayer.json`):
 
 ```json
 {
@@ -58,23 +63,23 @@ Start pi and talk naturally:
 
 ## Tools
 
-Tools are **auto-generated from the resource-registry** on startup (72 tools across 13 domains):
+Tools are **auto-generated from the resource-registry** on startup across 13 domains:
 
-| Tool                        | Domain              | Example Actions                                                                        |
-| --------------------------- | ------------------- | -------------------------------------------------------------------------------------- |
-| `storelayer_project`        | Rules & Config (16) | `add_rule`, `update_rule`, `list_rules`, `test_conditions`, `test_rule`, `get_summary` |
-| `storelayer_promotions`     | Promotions (18)     | `create`, `evaluate_cart`, `create_coupon`, `bulk_create_coupons`, `duplicate`         |
-| `storelayer_referral`       | Referrals (12)      | `create_code`, `apply_code`, `validate_code`, `get_leaderboard`, `get_stats`           |
-| `storelayer_stores`         | Stores (9)          | `create_store`, `list_stores`, `create_facility`, `list_facilities`                    |
-| `storelayer_external_users` | Users (7)           | `get_user`, `lookup_user`, `search`, `register`, `update`                              |
-| `storelayer_resources`      | Resources (6)       | `add`, `list`, `resolve`, `remove`                                                     |
-| `storelayer_surveys`        | Surveys (6)         | `create`, `list`, `submit_response`, `get_stats`                                       |
-| `storelayer_wallet`         | Wallet (5)          | `get_balance`, `earn`, `spend`, `list_transactions`, `list_assets`                     |
-| `storelayer_support`        | Support (5)         | `create_ticket`, `list_tickets`, `update_ticket`, `get_stats`                          |
-| `storelayer_agent`          | Agent (5)           | `memory_store`, `memory_search`, `load_skill`, `list_tools`                            |
-| `storelayer_events`         | Events (4)          | `ingest`, `list`, `get`, `get_stats`                                                   |
-| `storelayer_workflows`      | Workflows (4)       | `list`, `get`, `get_full`, `get_stats`                                                 |
-| `storelayer_user_workflows` | User Workflows (3)  | `list`, `get`, `get_stats`                                                             |
+| Tool                        | Domain         | Example Actions                                                                        |
+| --------------------------- | -------------- | -------------------------------------------------------------------------------------- |
+| `storelayer_project`        | Rules & Config | `add_rule`, `update_rule`, `list_rules`, `test_conditions`, `test_rule`, `get_summary` |
+| `storelayer_promotions`     | Promotions     | `create`, `evaluate_cart`, `create_coupon`, `bulk_create_coupons`, `duplicate`         |
+| `storelayer_referral`       | Referrals      | `create_code`, `apply_code`, `validate_code`, `get_leaderboard`, `get_stats`           |
+| `storelayer_stores`         | Stores         | `create_store`, `list_stores`, `create_facility`, `list_facilities`                    |
+| `storelayer_external_users` | Users          | `get_user`, `lookup_user`, `search`, `register`, `update`                              |
+| `storelayer_resources`      | Resources      | `add`, `list`, `resolve`, `remove`                                                     |
+| `storelayer_surveys`        | Surveys        | `create`, `list`, `submit_response`, `get_stats`                                       |
+| `storelayer_wallet`         | Wallet         | `get_balance`, `earn`, `spend`, `list_transactions`, `list_assets`                     |
+| `storelayer_support`        | Support        | `create_ticket`, `list_tickets`, `update_ticket`, `get_stats`                          |
+| `storelayer_agent`          | Agent          | `memory_store`, `memory_search`, `load_skill`, `list_tools`                            |
+| `storelayer_events`         | Events         | `ingest`, `list`, `get`, `get_stats`                                                   |
+| `storelayer_workflows`      | Workflows      | `list`, `get`, `get_full`, `get_stats`                                                 |
+| `storelayer_user_workflows` | User Workflows | `list`, `get`, `get_stats`                                                             |
 
 If the tool manifest can't be fetched, a fallback `storelayer_api` tool is registered for raw API calls.
 
