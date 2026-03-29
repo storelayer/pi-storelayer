@@ -75,12 +75,23 @@ After user confirms:
 
 ### Cart Schema (camelCase)
 
-All cart fields use camelCase:
+**⚠️ CRITICAL: All monetary values are in cents (smallest currency unit), NOT dollars!**
 
-- `unitPrice` (not `unit_price`)
+- `unitPrice` — **in cents** (e.g., `$25.00 = 2500`, not 25)
 - `productId` (not `product_id`)
 - `shippingAddress` (not `shipping_address`)
-- `currencyCode`, `salesChannel`, `storeId`, `taxTotal`, `shippingTotal`
+- `shippingTotal`, `taxTotal` — **in cents**
+- `currencyCode`, `salesChannel`, `storeId`
+
+**Example (correct):**
+```json
+{ "id": "item1", "unitPrice": 2500, "quantity": 1 }  // $25.00
+```
+
+**Example (WRONG):**
+```json
+{ "id": "item1", "unitPrice": 25, "quantity": 1 }  // $0.25 - likely a bug!
+```
 
 ## Rule Condition Reference
 
@@ -292,7 +303,7 @@ Use `storelayer_promotions` action `evaluate_cart` with params:
   "cart": {
     "userId": "user_123",
     "items": [
-      { "id": "item_1", "name": "Latte", "quantity": 2, "unitPrice": 5.5 }
+      { "id": "item_1", "name": "Latte", "quantity": 2, "unitPrice": 550 }
     ],
     "currencyCode": "USD",
     "redemptions": [{ "type": "points", "amount": 500 }]
@@ -416,6 +427,16 @@ Action: reward { amount: 1000, assetType: "points" } to both referrer and refere
 Condition: {{ $('event').tier ?? "standard" }} equals "gold"
 ```
 
+### Points-to-Cash Conversion (Redeem Points for Discount)
+
+Conversion rate example: 10 points = $5 (1 point = $0.50)
+
+1. Create wallet resource (if needed)
+2. Create promotion with custom_script method
+3. Evaluate cart with redemptions array
+
+See **Critical Implementation Notes** section for complete step-by-step guide.
+
 ## Error Handling
 
 If an API call fails:
@@ -426,3 +447,92 @@ If an API call fails:
 4. Suggest fixes (e.g., "The resource 'user' doesn't exist yet — shall I create it?")
 
 Validation errors now show detailed info: expected schema shape, received values, and the specific field path that failed.
+
+## Critical Implementation Notes
+
+### Field Naming Conventions
+
+**IMPORTANT**: The actual API uses `camelCase` for ALL field names, not snake_case:
+
+- `methodType` not `method_type` (correct discriminator for applicationMethod)
+- `discountType` not `discount_type`
+- `targetType` not `target_type`
+- `buyQuantity` not `buy_quantity`
+- `targetQuantity` not `target_quantity`
+- `maxQuantity` not `max_quantity`
+
+### Points-to-Cash Promotions (Creating Point Redemptions)
+
+To create a promotion where users can redeem points for cash discounts (e.g., 10 points = $5):
+
+#### Step 1: Create a Wallet Resource (if not exists)
+
+```json
+resources_add({
+  "key": "wallet_data",
+  "name": "Wallet Data Resource",
+  "type": "internal",
+  "config": {
+    "entity": "wallet",
+    "userIdExpression": "{{ $('cart').userId }}"
+  }
+})
+```
+
+#### Step 2: Create the Promotion with Wallet Resource
+
+```json
+promotions_create({
+  "name": "Points to Cash Conversion",
+  "status": "active",
+  "conditions": {
+    "conditions": [
+      { "leftValue": "{{ $('cart').redemptions.length }}", "operator": "gte", "rightValue": 1, "rightType": "number" }
+    ],
+    "combinator": "AND"
+  },
+  "applicationMethod": {
+    "methodType": "custom_script",
+    "language": "javascript",
+    "script": "// Prices are in cents! 10 points = $5 = 500 cents, so 1 point = 50 cents\nvar redemptions = $('cart').redemptions || [];\nvar results = [];\nfor (var i = 0; i < redemptions.length; i++) {\n  var r = redemptions[i];\n  if (r.type !== 'points') continue;\n  var discountPerPoint = 50; // 10 points = 500 cents (50 cents per point)\n  var maxDiscount = r.amount * discountPerPoint;\n  var cartTotal = $('cart').total || 0;\n  var actualDiscount = Math.min(maxDiscount, cartTotal);\n  var actualPoints = Math.floor(actualDiscount / discountPerPoint);\n  if (actualPoints > 0) {\n    results.push({ id: '__order__', amount: actualDiscount, redemption: { type: 'points', amount: actualPoints } });\n  }\n}\nreturn results;"
+  },
+  "resources": {
+    "wallet": { "entity": "wallet", "userIdExpression": "{{ $('cart').userId }}" }
+  },
+  "stackingMode": "exclusive",
+  "priority": 100
+})
+```
+
+**Key points:**
+- The `resources.wallet` config is required for point redemptions to work
+- The script returns `redemption: { type, amount }` to signal what to debit
+- Without wallet resource, `dryRun: false` evaluations won't actually debit points
+
+#### Step 3: Evaluate Cart with Redemptions
+
+```json
+promotions_evaluate_cart({
+  "cart": {
+    "userId": "user_123",  // Required for wallet resolution!
+    "items": [{ "id": "item1", "unitPrice": 2500, "quantity": 1 }],  // $25.00 in cents
+    "currencyCode": "USD",
+    "redemptions": [{ "type": "points", "amount": 20 }]
+  },
+  "dryRun": false,
+  "transactionId": "txn_order_123",  // Required when dryRun is false
+  "orderId": "order_123"
+})
+```
+
+**Required fields for real redemptions:**
+- `cart.userId` — must be present for wallet resolution
+- `transactionId` — **required** when `dryRun: false` (identifies the transaction)
+- `orderId` — optional but recommended for tracking
+
+### Testing Promotion Workflows
+
+1. **Dry run first** — always test with `dryRun: true` to verify logic
+2. **Check wallet balance** — before and after using `wallet.get_balance`
+3. **Verify usage records** — use `promotions.list_usage({ promotionId })` to see redemptions
+4. **Inspect response** — the `usages` array in the response confirms successful debit
