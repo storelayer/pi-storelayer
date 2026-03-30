@@ -249,6 +249,7 @@ const DOMAIN_GUIDELINES: Record<string, string[]> = {
   promotions: [
     "Use 'promotions.evaluate_cart' to test how promotions apply to a cart.",
     "Cart fields use camelCase: unitPrice, productId, variantId, shippingAddress, etc.",
+    "All cart price values (unitPrice, shippingTotal, taxTotal) must be integers in cents. Example: $25.00 = 2500.",
     "When creating promotions, ask about: discount type, conditions, validity dates, coupon codes.",
     "Always preview the promotion config before creating it.",
   ],
@@ -453,6 +454,7 @@ Uses strict validation — unknown fields are rejected. Always use camelCase (us
 **Evaluate promotions on a cart:**
 \`storelayer_promotions\` action: \`evaluate_cart\`, params: \`{ cart: { items: [...] }, userId, couponCodes }\`
 Cart fields use camelCase: unitPrice, productId, shippingAddress, etc.
+**All price values (unitPrice, shippingTotal, taxTotal) must be integers in cents. Example: $25.00 = 2500.**
 
 ### Key Concepts
 - **Resources**: Data sources for rules (event, internal, http, database, payload). Old builtins are removed.

@@ -75,12 +75,12 @@ After user confirms:
 
 ### Cart Schema (camelCase)
 
-**⚠️ CRITICAL: All monetary values are in cents (smallest currency unit), NOT dollars!**
+**⚠️ CRITICAL: All monetary/price values MUST be integers (whole numbers) in cents (smallest currency unit), NOT dollars!**
 
-- `unitPrice` — **in cents** (e.g., `$25.00 = 2500`, not 25)
+- `unitPrice` — **integer, in cents** (e.g., `$25.00 = 2500`, not 25)
 - `productId` (not `product_id`)
 - `shippingAddress` (not `shipping_address`)
-- `shippingTotal`, `taxTotal` — **in cents**
+- `shippingTotal`, `taxTotal` — **integer, in cents**
 - `currencyCode`, `salesChannel`, `storeId`
 
 **Example (correct):**
@@ -315,6 +315,7 @@ Use `storelayer_promotions` action `evaluate_cart` with params:
 
 - `userId` is inside `cart` (or use `cart.customer.id`)
 - `redemptions` — wallet assets the user wants to redeem (default: `[]`)
+- **All price values (`unitPrice`, `shippingTotal`, `taxTotal`) must be integers in cents.**
 - Response is fully **camelCase** (e.g., `discountTotal`, `appliedCount`, `shippingMethods`)
 
 ### Redemptions in Custom Scripts
@@ -333,7 +334,7 @@ var results = [];
 
 for (var i = 0; i < redemptions.length; i++) {
   var r = redemptions[i];
-  // Prices are in cents, 1 point = 50 cents ($0.50)
+  // Prices are in cents (integers), 1 point = 50 cents ($0.50)
   var discountPerPoint = 50;
   var maxDiscount = r.amount * discountPerPoint;
   var actualDiscount = Math.min(maxDiscount, cartTotal);
@@ -520,7 +521,7 @@ promotions_create({
   "applicationMethod": {
     "methodType": "custom_script",
     "language": "javascript",
-    "script": "// Prices are in cents! 10 points = $5 = 500 cents, so 1 point = 50 cents\n// Discount is distributed proportionally across cart items\nvar redemptions = $('cart').redemptions || [];\nvar items = $('cart').items || [];\nvar cartTotal = $('cart').total || 0;\nif (items.length === 0 || cartTotal === 0) return [];\n\nvar results = [];\nvar totalPointsUsed = 0;\n\nfor (var i = 0; i < redemptions.length; i++) {\n  var r = redemptions[i];\n  if (r.type !== 'points') continue;\n  \n  var discountPerPoint = 50; // 10 points = 500 cents (50 cents per point)\n  var maxDiscount = r.amount * discountPerPoint;\n  var actualDiscount = Math.min(maxDiscount, cartTotal);\n  var actualPoints = Math.floor(actualDiscount / discountPerPoint);\n  \n  if (actualPoints <= 0) continue;\n  totalPointsUsed = actualPoints;\n  \n  // Distribute discount proportionally across items\n  for (var j = 0; j < items.length; j++) {\n    var item = items[j];\n    var itemTotal = item.unitPrice * item.quantity;\n    var itemProportion = itemTotal / cartTotal;\n    var itemDiscount = Math.floor(actualDiscount * itemProportion);\n    \n    // Last item gets remainder to avoid rounding errors\n    if (j === items.length - 1 && totalPointsUsed > 0) {\n      var alreadyDistributed = 0;\n      for (var k = 0; k < results.length; k++) {\n        alreadyDistributed += results[k].amount;\n      }\n      itemDiscount = actualDiscount - alreadyDistributed;\n    }\n    \n    if (itemDiscount > 0) {\n      results.push({ id: item.itemId, amount: itemDiscount, redemption: null });  // Use itemId!\n    }\n  }\n}\n\n// Attach redemption info to last item\nif (results.length > 0 && totalPointsUsed > 0) {\n  results[results.length - 1].redemption = { type: 'points', amount: totalPointsUsed };\n}\nreturn results;"
+    "script": "// Prices are integers in cents\n// 10 points = $5 = 500 cents, so 1 point = 50 cents\n// Discount is distributed proportionally across cart items\nvar redemptions = $('cart').redemptions || [];\nvar items = $('cart').items || [];\nvar cartTotal = $('cart').total || 0;\nif (items.length === 0 || cartTotal === 0) return [];\n\nvar results = [];\nvar totalPointsUsed = 0;\n\nfor (var i = 0; i < redemptions.length; i++) {\n  var r = redemptions[i];\n  if (r.type !== 'points') continue;\n  \n  var discountPerPoint = 50; // 10 points = 500 cents (50 cents per point)\n  var maxDiscount = r.amount * discountPerPoint;\n  var actualDiscount = Math.min(maxDiscount, cartTotal);\n  var actualPoints = Math.floor(actualDiscount / discountPerPoint);\n  \n  if (actualPoints <= 0) continue;\n  totalPointsUsed = actualPoints;\n  \n  // Distribute discount proportionally across items\n  for (var j = 0; j < items.length; j++) {\n    var item = items[j];\n    var itemTotal = item.unitPrice * item.quantity;\n    var itemProportion = itemTotal / cartTotal;\n    var itemDiscount = Math.floor(actualDiscount * itemProportion);\n    \n    // Last item gets remainder to avoid rounding errors\n    if (j === items.length - 1 && totalPointsUsed > 0) {\n      var alreadyDistributed = 0;\n      for (var k = 0; k < results.length; k++) {\n        alreadyDistributed += results[k].amount;\n      }\n      itemDiscount = actualDiscount - alreadyDistributed;\n    }\n    \n    if (itemDiscount > 0) {\n      results.push({ id: item.itemId, amount: itemDiscount, redemption: null });  // Use itemId!\n    }\n  }\n}\n\n// Attach redemption info to last item\nif (results.length > 0 && totalPointsUsed > 0) {\n  results[results.length - 1].redemption = { type: 'points', amount: totalPointsUsed };\n}\nreturn results;"
   },
   "resources": {
     "wallet": { "entity": "wallet", "userIdExpression": "{{ $('cart').userId }}" }

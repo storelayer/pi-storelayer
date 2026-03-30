@@ -68,7 +68,7 @@ Tools are **auto-generated from the resource-registry** on startup across 13 dom
 | Tool                        | Domain         | Example Actions                                                                        |
 | --------------------------- | -------------- | -------------------------------------------------------------------------------------- |
 | `storelayer_project`        | Rules & Config | `add_rule`, `update_rule`, `list_rules`, `test_conditions`, `test_rule`, `get_summary` |
-| `storelayer_promotions`     | Promotions     | `create`, `evaluate_cart`, `create_coupon`, `bulk_create_coupons`, `duplicate`         |
+| `storelayer_promotions`     | Promotions     | `create`, `evaluate_cart`, `create_coupon`, `bulk_create_coupons`, `duplicate` — **cart prices must be integers in cents** |
 | `storelayer_referral`       | Referrals      | `create_code`, `apply_code`, `validate_code`, `get_leaderboard`, `get_stats`           |
 | `storelayer_stores`         | Stores         | `create_store`, `list_stores`, `create_facility`, `list_facilities`                    |
 | `storelayer_external_users` | Users          | `get_user`, `lookup_user`, `search`, `register`, `update`                              |
