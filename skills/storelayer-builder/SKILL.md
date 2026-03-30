@@ -313,7 +313,7 @@ Use `storelayer_promotions` action `evaluate_cart` with params:
 }
 ```
 
-- `userId` is inside `cart` (or use `cart.customer.id`)
+- `userId` must be inside `cart` — this is required for usage recording and per-user limits
 - `redemptions` — wallet assets the user wants to redeem (default: `[]`)
 - **All price values (`unitPrice`, `shippingTotal`, `taxTotal`) must be integers in cents.**
 - Response is fully **camelCase** (e.g., `discountTotal`, `appliedCount`, `shippingMethods`)
@@ -475,18 +475,101 @@ If an API call fails:
 
 Validation errors now show detailed info: expected schema shape, received values, and the specific field path that failed.
 
+## Application Method Reference
+
+**⚠️ ALL fields use camelCase — never snake_case.**
+
+### Standard Method (percentage or fixed discount)
+
+```json
+{
+  "applicationMethod": {
+    "methodType": "standard",
+    "discountType": "percentage",
+    "value": 20,
+    "targetType": "order",
+    "allocation": "across"
+  }
+}
+```
+
+| Field | Values | Description |
+|-------|--------|-------------|
+| `methodType` | `"standard"` | Required discriminator |
+| `discountType` | `"percentage"` \| `"fixed"` | Percentage off or fixed amount (in cents) |
+| `value` | number | Discount value (e.g., `20` for 20%, or `1500` for $15.00) |
+| `targetType` | `"order"` \| `"items"` \| `"shipping"` | What the discount applies to |
+| `allocation` | `"each"` \| `"across"` | Per-item or shared budget distributed proportionally |
+| `targetRules` | ConditionGroup (optional) | Filter which items qualify (for `targetType: "items"`) |
+| `maxQuantity` | number (optional) | Max items to discount |
+
+**Examples:**
+
+```json
+// 20% off entire order
+{ "methodType": "standard", "discountType": "percentage", "value": 20, "targetType": "order", "allocation": "across" }
+
+// $15 off each qualifying item
+{ "methodType": "standard", "discountType": "fixed", "value": 1500, "targetType": "items", "allocation": "each" }
+
+// 50% off items in "electronics" category
+{
+  "methodType": "standard",
+  "discountType": "percentage",
+  "value": 50,
+  "targetType": "items",
+  "allocation": "each",
+  "targetRules": {
+    "conditions": [{ "leftValue": "{{ $('item').category }}", "operator": "equals", "rightValue": "electronics" }],
+    "combinator": "AND"
+  }
+}
+
+// Free shipping
+{ "methodType": "standard", "discountType": "percentage", "value": 100, "targetType": "shipping", "allocation": "each" }
+```
+
+### Buy X Get Y Method
+
+```json
+{
+  "applicationMethod": {
+    "methodType": "buyget",
+    "buyQuantity": 2,
+    "targetQuantity": 1,
+    "discountType": "percentage",
+    "value": 100,
+    "buyRules": {
+      "conditions": [{ "leftValue": "{{ $('item').category }}", "operator": "equals", "rightValue": "shoes" }],
+      "combinator": "AND"
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `methodType` | `"buyget"` |
+| `buyQuantity` | Number of items to buy |
+| `targetQuantity` | Number of free/discounted items |
+| `discountType` | `"percentage"` \| `"fixed"` — discount on the target items |
+| `value` | Discount value (100 = free for percentage) |
+| `buyRules` | ConditionGroup — which items count as "buy" |
+| `targetRules` | ConditionGroup (optional) — which items can be the "get" |
+
+### Custom Script Method
+
+```json
+{
+  "applicationMethod": {
+    "methodType": "custom_script",
+    "language": "javascript",
+    "script": "var items = $('cart').items; return items.map(function(item) { return { id: item.itemId, amount: 100 }; });"
+  }
+}
+```
+
 ## Critical Implementation Notes
-
-### Field Naming Conventions
-
-**IMPORTANT**: The actual API uses `camelCase` for ALL field names, not snake_case:
-
-- `methodType` not `method_type` (correct discriminator for applicationMethod)
-- `discountType` not `discount_type`
-- `targetType` not `target_type`
-- `buyQuantity` not `buy_quantity`
-- `targetQuantity` not `target_quantity`
-- `maxQuantity` not `max_quantity`
 
 ### Points-to-Cash Promotions (Creating Point Redemptions)
 
