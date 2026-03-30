@@ -378,7 +378,7 @@ Response includes:
 ```json
 {
   "redemptions": [{ "type": "points", "amount": 450, "id": "promo_xxx" }],
-  "summary": { "discountTotal": 4.5 }
+  "summary": { "discountTotal": 450 }
 }
 ```
 
