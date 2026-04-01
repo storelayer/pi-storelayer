@@ -255,7 +255,8 @@ const DOMAIN_GUIDELINES: Record<string, string[]> = {
     "Always preview the promotion config before creating it.",
   ],
   resources: [
-    "Resource types: event, internal, http, database, payload, custom_table. Old builtins (cart, customer, item) are removed.",
+    "Resource types: event, internal, http, database, payload, custom_table, code. Old builtins (cart, customer, item) are removed.",
+    "Code resources run JS/TS scripts in a QuickJS sandbox (5s timeout). Use $('key') to access other resources. Return value becomes the resource data.",
     "Internal resources (wallet, user, history) are auto-created when rules reference them.",
     "Payload resources store custom data with config.data field.",
     "custom_table resources query custom storage tables at evaluation time — use for tier lookups, product catalogs, blocklists.",
@@ -467,7 +468,7 @@ Cart fields use camelCase: unitPrice, productId, shippingAddress, etc.
 **All price values (unitPrice, shippingTotal, taxTotal) must be integers in cents. Example: $25.00 = 2500.**
 
 ### Key Concepts
-- **Resources**: Data sources for rules (event, internal, http, database, payload). Old builtins are removed.
+- **Resources**: Data sources for rules (event, internal, http, database, payload, custom_table, code). Old builtins are removed.
   - Internal resources (wallet, user, history) are auto-created when rules reference them.
   - Event resources are auto-created on rule creation based on conditions.
   - Resources cannot be deleted while referenced by rules.
